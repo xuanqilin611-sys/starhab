@@ -1,0 +1,43 @@
+-- GitHubに保存する用のコード
+local H, C = game:GetService("HttpService"), game:GetService("CoreGui")
+local lang, sel = "en", "英語"
+if C:FindFirstChild("V4T") then C.V4T:Destroy() end
+local function send(t)
+    local u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl="..lang.."&dt=t&q="..H:UrlEncode(t)
+    local s, r = pcall(function() return request and request({Url=u}).Body or game:HttpGet(u) end)
+    local res = s and r:match('^%[%[%["(.-)","') or t
+    res = res:gsub("\\u0027", "'"):gsub("\\u0022", '"')
+    local tcs = game:GetService("TextChatService")
+    if tcs.ChatVersion == Enum.ChatVersion.TextChatService then
+        tcs.TextChannels.RBXGeneral:SendAsync(res)
+    else
+        game:GetService("ReplicatedStorage"):FindFirstChild("SayMessageRequest",true):FireServer(res,"All")
+    end
+end
+local function c(cl, p, pr)
+    local i = Instance.new(cl)
+    for k, v in pairs(pr) do i[k] = v end
+    i.Parent = p return i
+end
+local g = c("ScreenGui", C, {Name = "V4T"})
+local m = c("Frame", g, {Size = UDim2.new(0,300,0,200), Position = UDim2.new(0.5,-150,0.5,-100), BackgroundColor3 = Color3.fromRGB(20,20,20), Active = true, Draggable = true})
+c("UICorner", m, {CornerRadius = UDim.new(0,4)})
+local b = c("Frame", m, {Size = UDim2.new(1,0,0,30), BackgroundColor3 = Color3.fromRGB(25,25,25)})
+c("TextLabel", b, {Text = " TRANSLATION HUB [V4]", Size = UDim2.new(1,-40,1,0), TextColor3 = Color3.fromRGB(0,200,255), Font = "GothamBold", BackgroundTransparency = 1, TextXAlignment = "Left"})
+local mi = c("TextButton", b, {Text = "-", Size = UDim2.new(0,30,0,30), Position = UDim2.new(1,-30,0,0), BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)})
+local t = c("TextButton", g, {Size = UDim2.new(0,140,0,28), Position = UDim2.new(0.5,-70,0,8), Text = "Vape V4 | 開く", Visible = false, BackgroundColor3 = Color3.fromRGB(20,20,20), TextColor3 = Color3.fromRGB(0,200,255)})
+c("UIStroke", t, {Color = Color3.fromRGB(0,200,255)}) c("UICorner", t, {})
+mi.MouseButton1Click:Connect(function() m.Visible, t.Visible = false, true end)
+t.MouseButton1Click:Connect(function() m.Visible, t.Visible = true, false end)
+local d = c("Frame", m, {Size = UDim2.new(0,280,0,35), Position = UDim2.new(0,10,0,45), BackgroundColor3 = Color3.fromRGB(30,30,30)})
+local sb = c("TextButton", d, {Size = UDim2.new(1,0,1,0), Text = "選択中: 英語", BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)})
+local l = c("Frame", d, {Size = UDim2.new(1,0,0,105), Position = UDim2.new(0,0,1,5), Visible = false, ZIndex = 10, BackgroundColor3 = Color3.fromRGB(25,25,25)})
+for i, v in pairs({{"英語","en"},{"韓国語","ko"},{"アラビア語","ar"}}) do
+    local op = c("TextButton", l, {Size = UDim2.new(1,0,0,35), Position = UDim2.new(0,0,0,(i-1)*35), Text = v[1], BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1), ZIndex = 11})
+    op.MouseButton1Click:Connect(function() lang, sb.Text, l.Visible = v[2], "選択中: "..v[1], false end)
+end
+sb.MouseButton1Click:Connect(function() l.Visible = not l.Visible end)
+local inp = c("TextBox", m, {Size = UDim2.new(0,280,0,35), Position = UDim2.new(0,10,0,90), PlaceholderText = "入力...", BackgroundColor3 = Color3.fromRGB(30,30,30), TextColor3 = Color3.new(1,1,1)})
+local ex = c("TextButton", m, {Size = UDim2.new(0,280,0,45), Position = UDim2.new(0,10,0,140), Text = "翻訳して送信", BackgroundColor3 = Color3.fromRGB(0,150,255), TextColor3 = Color3.new(1,1,1)})
+c("UICorner", ex, {})
+ex.MouseButton1Click:Connect(function() if inp.Text ~= "" then send(inp.Text) inp.Text = "" end end)
