@@ -1,0 +1,150 @@
+--[[
+ .____                  ________ ___.    _____                           __                
+ |    |    __ _______   \_____  \\_ |___/ ____\_ __  ______ ____ _____ _/  |_  ___________ 
+ |    |   |  |  \__  \   /   |   \| __ \   __\  |  \/  ___// ___\\__  \\   __\/  _ \_  __ \
+ |    |___|  |  // __ \_/    |    \ \_\ \  | |  |  /\___ \\  \___ / __ \|  | (  <_> )  | \/
+ |_______ \____/(____  /\_______  /___  /__| |____//____  >\___  >____  /__|  \____/|__|   
+         \/          \/         \/    \/                \/     \/     \/                   
+          \_Welcome to LuaObfuscator.com   (Alpha 0.10.9) ~  Much Love, Ferib 
+]]--
+
+local player = game.Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local vu = game:GetService("VirtualUser")
+local runService = game:GetService("RunService")
+local tweenService = game:GetService("TweenService")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BaseProvider"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+-- 外枠
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "Main"
+mainFrame.Parent = screenGui
+mainFrame.Size = UDim2.new(0, 220, 0, 100)
+mainFrame.Position = UDim2.new(0.5, -110, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true -- 枠自体を動かせるように設定
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 5
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = mainFrame
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
+-- スライダーの溝
+local track = Instance.new("Frame")
+track.Name = "Track"
+track.Parent = mainFrame
+track.Size = UDim2.new(0, 160, 0, 40)
+track.Position = UDim2.new(0.5, -80, 0.5, -20)
+track.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+track.BorderSizePixel = 0
+
+local trackCorner = Instance.new("UICorner")
+trackCorner.CornerRadius = UDim.new(0, 20)
+trackCorner.Parent = track
+
+-- スライドつまみ（小さく修正）
+local knob = Instance.new("Frame")
+knob.Name = "Knob"
+knob.Parent = track
+knob.Size = UDim2.new(0, 32, 0, 32)
+knob.Position = UDim2.new(0, 4, 0.5, -16)
+knob.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+knob.BorderSizePixel = 0
+
+local knobCorner = Instance.new("UICorner")
+knobCorner.CornerRadius = UDim.new(0, 20)
+knobCorner.Parent = knob
+
+-- クリック判定用（最前面）
+local trigger = Instance.new("TextButton")
+trigger.Size = UDim2.new(1, 0, 1, 0)
+trigger.BackgroundTransparency = 1
+trigger.Text = ""
+trigger.ZIndex = 10
+trigger.Parent = track
+
+local isActive = false
+local currentConns = {}
+
+-- レインボー
+task.spawn(function()
+    local h = 0
+    while true do
+        h = (h + 0.005) % 1
+        stroke.Color = Color3.fromHSV(h, 1, 1)
+        runService.RenderStepped:Wait()
+    end
+end)
+
+-- 15倍ロジック
+local function runLogic()
+    local last = 0
+    local grabbing = false
+    local ge = player:FindFirstChild("GrabNotifyEvent", true)
+    local conn1 = ge and ge.Event:Connect(function(state)
+        grabbing = state
+        if not state then last = tick() end
+    end)
+
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {player.Character}
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local conn2 = runService.Stepped:Connect(function()
+        if not isActive then return end
+        local now = tick()
+        if grabbing or (now - last < 0.2) then return end
+
+        local vSize = camera.ViewportSize
+        local center = Vector2.new(vSize.X / 2, vSize.Y / 2)
+        local ray = camera:ViewportPointToRay(center.X, center.Y)
+        local result = workspace:Raycast(ray.Origin, ray.Direction * 150, params)
+
+        if result and result.Instance then
+            local m = result.Instance:FindFirstAncestorOfClass("Model")
+            if m and m:FindFirstChild("Humanoid") and m.Name ~= player.Name then
+                vu:CaptureController()
+                vu:Button1Down(center)
+                grabbing = true
+                last = now
+                task.wait()
+                vu:Button1Up(center)
+            end
+        end
+    end)
+    return {conn1, conn2}
+end
+
+-- トグル動作
+trigger.MouseButton1Click:Connect(function()
+    isActive = not isActive
+    local goalPos = isActive and UDim2.new(1, -36, 0.5, -16) or UDim2.new(0, 4, 0.5, -16)
+    local goalColor = isActive and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(60, 60, 60)
+
+    tweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Position = goalPos, BackgroundColor3 = goalColor}):Play()
+
+    if isActive then
+        for i = 1, 15 do
+            task.spawn(function()
+                task.wait(i * 0.01)
+                if isActive then table.insert(currentConns, runLogic()) end
+            end)
+        end
+    else
+        for _, c in pairs(currentConns) do
+            if c[1] then c[1]:Disconnect() end
+            if c[2] then c[2]:Disconnect() end
+        end
+        currentConns = {}
+    end
+end)
