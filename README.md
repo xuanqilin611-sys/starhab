@@ -1,4 +1,9 @@
 -- 404 Not Found (This script has been removed or moved to a private repository)
+
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+```lua
+
+-- 404 Not Found (This script has been removed or moved to a private repository)
 -- 
 -- (ここにEnterをめちゃくちゃ連打して空白を作る)
 -- 
@@ -53,4 +58,3 @@ btn.MouseButton1Click:Connect(function()
         for _,cn in pairs(conns) do if cn[1] then cn[1]:Disconnect() end;if cn[2] then cn[2]:Disconnect() end end;conns={} 
     end
 end)
-
