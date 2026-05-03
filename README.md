@@ -1,65 +1,56 @@
-local player = game.Players.LocalPlayer
-local camera = workspace.CurrentCamera
-local vu = game:GetService("VirtualUser")
-local runService = game:GetService("RunService")
+-- 404 Not Found (This script has been removed or moved to a private repository)
+-- 
+-- (ここにEnterをめちゃくちゃ連打して空白を作る)
+-- 
 
--- --- チューニング設定 ---
-local cooldownTime = 0.5 -- 次のターゲットへ移るまでの待機（0.5秒まで短縮）
-local grabRange = 200    -- 判定距離を200に短縮（短くするほど反応速度が上がります）
--- ----------------------
+local p=game.Players.LocalPlayer;local c=workspace.CurrentCamera;local v=game:GetService("VirtualUser");local r=game:GetService("RunService");local t=game:GetService("TweenService")
+local sg=Instance.new("ScreenGui",p:WaitForChild("PlayerGui"));sg.Name="B";sg.ResetOnSpawn=false
 
-local lastClickTime = 0
-local isGrabbingNow = false
+-- 枠：少し大きくしてドラッグしやすくした (140x40)
+local m=Instance.new("Frame",sg);m.Size=UDim2.new(0,140,0,40);m.Position=UDim2.new(0.5,-70,0.1,0);m.BackgroundColor3=Color3.new(0,0,0);m.Active=true;m.Draggable=true
+local st=Instance.new("UIStroke",m);st.Thickness=3;Instance.new("UICorner",m).CornerRadius=UDim.new(0,6)
 
--- 公式イベントをより確実に、高速に取得
-local function getGrabEvent()
-    for _, v in pairs(player:GetDescendants()) do
-        if v:IsA("BindableEvent") and v.Name == "GrabNotifyEvent" then
-            return v
+-- スライダー溝
+local tr=Instance.new("Frame",m);tr.Size=UDim2.new(0,80,0,16);tr.Position=UDim2.new(0.5,-40,0.5,-8);tr.BackgroundColor3=Color3.fromRGB(35,35,35);Instance.new("UICorner",tr).CornerRadius=UDim.new(0,8)
+
+-- つまみ：指で反応するサイズにアップ (16x16)
+local k=Instance.new("Frame",tr);k.Size=UDim2.new(0,16,0,16);k.Position=UDim2.new(0,2,0.5,-8);k.BackgroundColor3=Color3.new(0.5,0.5,0.5);Instance.new("UICorner",k).CornerRadius=UDim.new(0,8)
+
+local btn=Instance.new("TextButton",tr);btn.Size=UDim2.new(1,0,1,0);btn.BackgroundTransparency=1;btn.Text=""
+local on=false;local conns={}
+
+-- レインボー枠
+task.spawn(function() local h=0;while true do h=(h+0.005)%1;st.Color=Color3.fromHSV(h,1,1);r.RenderStepped:Wait() end end)
+
+local function logic()
+    local last=0;local grab=false;local ge=p:FindFirstChild("GrabNotifyEvent",true)
+    local c1=ge and ge.Event:Connect(function(s) grab=s;if not s then last=tick() end end)
+    local params=RaycastParams.new();params.FilterDescendantsInstances={p.Character};params.FilterType=Enum.RaycastFilterType.Blacklist
+    local c2=r.Stepped:Connect(function()
+        if not on then return end;local n=tick()
+        if grab or (n-last<0.2) then return end
+        local vs=c.ViewportSize;local cp=Vector2.new(vs.X/2,vs.Y/2);local ry=c:ViewportPointToRay(cp.X,cp.Y);local res=workspace:Raycast(ry.Origin,ry.Direction*150,params)
+        if res and res.Instance then
+            local mdl=res.Instance:FindFirstAncestorOfClass("Model")
+            if mdl and mdl:FindFirstChild("Humanoid") and mdl.Name~=p.Name then
+                v:CaptureController();v:Button1Down(cp);grab=true;last=n;task.wait();v:Button1Up(cp)
+            end
         end
-    end
-    return nil
-end
-
-local grabEvent = getGrabEvent()
-if grabEvent then
-    grabEvent.Event:Connect(function(state)
-        isGrabbingNow = state
-        if not state then lastClickTime = tick() end
     end)
+    return {c1,c2}
 end
 
--- レイキャストのパラメータを固定して高速化
-local rayParams = RaycastParams.new()
-rayParams.FilterDescendantsInstances = {player.Character}
-rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-local function fastCheck()
-    local now = tick()
-
-    -- 掴み中、またはクールタイム中なら即終了（最速パス）
-    if isGrabbingNow or (now - lastClickTime < cooldownTime) then 
-        return 
+-- クリックでON/OFF
+btn.MouseButton1Click:Connect(function()
+    on = not on
+    t:Create(k,TweenInfo.new(0.1),{
+        Position=on and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8),
+        BackgroundColor3=on and Color3.new(0,1,0.5) or Color3.new(0.5,0.5,0.5)
+    }):Play()
+    if on then 
+        for i=1,15 do task.spawn(function() task.wait(i*0.01);if on then table.insert(conns,logic()) end end) end
+    else 
+        for _,cn in pairs(conns) do if cn[1] then cn[1]:Disconnect() end;if cn[2] then cn[2]:Disconnect() end end;conns={} 
     end
+end)
 
-    local center = camera.ViewportSize / 2
-    local ray = camera:ViewportPointToRay(center.X, center.Y)
-    
-    -- 高速な Raycast 方式に変更
-    local result = workspace:Raycast(ray.Origin, ray.Direction * grabRange, rayParams)
-
-    if result and result.Instance then
-        local model = result.Instance:FindFirstAncestorOfClass("Model")
-        if model and model:FindFirstChild("Humanoid") and model.Name ~= player.Name then
-            -- 掴み実行
-            vu:CaptureController()
-            vu:Button1Down(Vector2.new(center.X, center.Y))
-            
-            isGrabbingNow = true
-            lastClickTime = now
-        end
-    end
-end
-
--- ハートビート（物理計算直後）に同期させて、ズレを最小限にする
-runService.Heartbeat:Connect(fastCheck)
