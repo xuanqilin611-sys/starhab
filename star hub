@@ -1,43 +1,5 @@
--- GitHubに保存する用のコード
-local H, C = game:GetService("HttpService"), game:GetService("CoreGui")
-local lang, sel = "en", "英語"
-if C:FindFirstChild("V4T") then C.V4T:Destroy() end
-local function send(t)
-    local u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl="..lang.."&dt=t&q="..H:UrlEncode(t)
-    local s, r = pcall(function() return request and request({Url=u}).Body or game:HttpGet(u) end)
-    local res = s and r:match('^%[%[%["(.-)","') or t
-    res = res:gsub("\\u0027", "'"):gsub("\\u0022", '"')
-    local tcs = game:GetService("TextChatService")
-    if tcs.ChatVersion == Enum.ChatVersion.TextChatService then
-        tcs.TextChannels.RBXGeneral:SendAsync(res)
-    else
-        game:GetService("ReplicatedStorage"):FindFirstChild("SayMessageRequest",true):FireServer(res,"All")
-    end
-end
-local function c(cl, p, pr)
-    local i = Instance.new(cl)
-    for k, v in pairs(pr) do i[k] = v end
-    i.Parent = p return i
-end
-local g = c("ScreenGui", C, {Name = "V4T"})
-local m = c("Frame", g, {Size = UDim2.new(0,300,0,200), Position = UDim2.new(0.5,-150,0.5,-100), BackgroundColor3 = Color3.fromRGB(20,20,20), Active = true, Draggable = true})
-c("UICorner", m, {CornerRadius = UDim.new(0,4)})
-local b = c("Frame", m, {Size = UDim2.new(1,0,0,30), BackgroundColor3 = Color3.fromRGB(25,25,25)})
-c("TextLabel", b, {Text = " TRANSLATION HUB [V4]", Size = UDim2.new(1,-40,1,0), TextColor3 = Color3.fromRGB(0,200,255), Font = "GothamBold", BackgroundTransparency = 1, TextXAlignment = "Left"})
-local mi = c("TextButton", b, {Text = "-", Size = UDim2.new(0,30,0,30), Position = UDim2.new(1,-30,0,0), BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)})
-local t = c("TextButton", g, {Size = UDim2.new(0,140,0,28), Position = UDim2.new(0.5,-70,0,8), Text = "Vape V4 | 開く", Visible = false, BackgroundColor3 = Color3.fromRGB(20,20,20), TextColor3 = Color3.fromRGB(0,200,255)})
-c("UIStroke", t, {Color = Color3.fromRGB(0,200,255)}) c("UICorner", t, {})
-mi.MouseButton1Click:Connect(function() m.Visible, t.Visible = false, true end)
-t.MouseButton1Click:Connect(function() m.Visible, t.Visible = true, false end)
-local d = c("Frame", m, {Size = UDim2.new(0,280,0,35), Position = UDim2.new(0,10,0,45), BackgroundColor3 = Color3.fromRGB(30,30,30)})
-local sb = c("TextButton", d, {Size = UDim2.new(1,0,1,0), Text = "選択中: 英語", BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1)})
-local l = c("Frame", d, {Size = UDim2.new(1,0,0,105), Position = UDim2.new(0,0,1,5), Visible = false, ZIndex = 10, BackgroundColor3 = Color3.fromRGB(25,25,25)})
-for i, v in pairs({{"英語","en"},{"韓国語","ko"},{"アラビア語","ar"}}) do
-    local op = c("TextButton", l, {Size = UDim2.new(1,0,0,35), Position = UDim2.new(0,0,0,(i-1)*35), Text = v[1], BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1), ZIndex = 11})
-    op.MouseButton1Click:Connect(function() lang, sb.Text, l.Visible = v[2], "選択中: "..v[1], false end)
-end
-sb.MouseButton1Click:Connect(function() l.Visible = not l.Visible end)
-local inp = c("TextBox", m, {Size = UDim2.new(0,280,0,35), Position = UDim2.new(0,10,0,90), PlaceholderText = "入力...", BackgroundColor3 = Color3.fromRGB(30,30,30), TextColor3 = Color3.new(1,1,1)})
-local ex = c("TextButton", m, {Size = UDim2.new(0,280,0,45), Position = UDim2.new(0,10,0,140), Text = "翻訳して送信", BackgroundColor3 = Color3.fromRGB(0,150,255), TextColor3 = Color3.new(1,1,1)})
-c("UICorner", ex, {})
-ex.MouseButton1Click:Connect(function() if inp.Text ~= "" then send(inp.Text) inp.Text = "" end end)
+--[[ 
+  STAR HUB V4 - PROTECTED 
+]]--
+
+local _0x5f2=game:GetService("HttpService")local _0x4c1=game:GetService("CoreGui")local _0x1a2=game:GetService("Players").LocalPlayer local _0x8d3="ja"local _0x9e4="en"if _0x4c1:FindFirstChild("V4T")then _0x4c1.V4T:Destroy()end local function _0xTr(_0x1,_0x2)if _0x1==""or _0x1==nil then return _0x1 end local _0xR=nil local _0xS=false local _0xA=0 while not _0xS and _0xA<3 do _0xA=_0xA+1 local _0xU="https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=".._0x2.."&dt=t&q=".._0x5f2:UrlEncode(_0x1)local _0xOK,_0xDT=pcall(function()return request and request({Url=_0xU,Method="GET"}).Body or game:HttpGet(_0xU)end)if _0xOK and _0xDT then _0xR=_0xDT:match('^%[%[%["(.-)","')or _0xDT:match('^%[%["(.-)"')if _0xR then _0xR=_0xR:gsub("\\u0027","'"):gsub("\\u0022",'"')_0xS=true end end if not _0xS then task.wait(0.5)end end return _0xR or _0x1 end local function _0xC(_0xcl,_0xp,_0xpr)local _0xi=Instance.new(_0xcl)for k,v in pairs(_0xpr)do _0xi[k]=v end _0xi.Parent=_0xp return _0xi end local _0xG=_0xC("ScreenGui",_0x4c1,{Name="V4T"})local _0xM=_0xC("Frame",_0xG,{Size=UDim2.new(0,350,0,250),Position=UDim2.new(0.5,-175,0.5,-125),BackgroundColor3=Color3.fromRGB(20,20,20),Active=true,Draggable=true})_0xC("UICorner",_0xM,{CornerRadius=UDim.new(0,6)})local _0xB=_0xC("Frame",_0xM,{Size=UDim2.new(1,0,0,30),BackgroundColor3=Color3.fromRGB(25,25,25)})local _0xT=_0xC("TextLabel",_0xB,{Text=" STAR HUB V4 | PROTECTED",Size=UDim2.new(1,-40,1,0),TextXAlignment="Left",Position=UDim2.new(0,10,0,0),TextColor3=Color3.fromRGB(0,200,255),Font="GothamBold",BackgroundTransparency=1})local _0xMI=_0xC("TextButton",_0xB,{Text="-",Size=UDim2.new(0,30,0,30),Position=UDim2.new(1,-30,0,0),BackgroundTransparency=1,TextColor3=Color3.new(1,1,1)})local _0xCT=_0xC("Frame",_0xM,{Size=UDim2.new(1,0,0,35),Position=UDim2.new(0,0,0,30),BackgroundColor3=Color3.fromRGB(30,30,30)})local _0xCP=_0xC("Frame",_0xM,{Size=UDim2.new(1,0,1,-65),Position=UDim2.new(0,0,0,65),BackgroundTransparency=1,Visible=true})local _0xSP=_0xC("Frame",_0xM,{Size=UDim2.new(1,0,1,-65),Position=UDim2.new(0,0,0,65),BackgroundTransparency=1,Visible=false})local _0xBC=_0xC("TextButton",_0xCT,{Size=UDim2.new(0.5,0,1,0),Text="チャット",BackgroundTransparency=0.5,BackgroundColor3=Color3.fromRGB(0,150,255),TextColor3=Color3.new(1,1,1),Font="GothamBold"})local _0xBS=_0xC("TextButton",_0xCT,{Size=UDim2.new(0.5,0,1,0),Position=UDim2.new(0.5,0,0,0),Text="看板",BackgroundTransparency=1,BackgroundColor3=Color3.fromRGB(0,150,255),TextColor3=Color3.new(1,1,1),Font="GothamBold"})_0xBC.MouseButton1Click:Connect(function()_0xCP.Visible=true _0xSP.Visible=false _0xBC.BackgroundTransparency=0.5 _0xBS.BackgroundTransparency=1 end)_0xBS.MouseButton1Click:Connect(function()_0xCP.Visible=false _0xSP.Visible=true _0xBC.BackgroundTransparency=1 _0xBS.BackgroundTransparency=0.5 end)local _0xL={{"日本語","ja"},{"英語","en"},{"韓国語","ko"},{"アラビア語","ar"},{"中国語","zh-cn"}}local function _0xSetup(_0xpage,_0xtype)local _0xdr=_0xC("Frame",_0xpage,{Size=UDim2.new(0,330,0,35),Position=UDim2.new(0,10,0,10),BackgroundColor3=Color3.fromRGB(35,35,35)})local _0xmainbtn=_0xC("TextButton",_0xdr,{Size=UDim2.new(1,0,1,0),Text=(_0xtype=="C"and"送信用: 英語"or"看板用: 日本語"),BackgroundTransparency=1,TextColor3=Color3.new(1,1,1)})local _0xlist=_0xC("Frame",_0xdr,{Size=UDim2.new(1,0,0,175),Position=UDim2.new(0,0,1,5),Visible=false,ZIndex=20,BackgroundColor3=Color3.fromRGB(25,25,25)})for i,v in pairs(_0xL)do local _0xop=_0xC("TextButton",_0xlist,{Size=UDim2.new(1,0,0,35),Position=UDim2.new(0,0,0,(i-1)*35),Text=v[1],BackgroundTransparency=1,TextColor3=Color3.new(1,1,1),ZIndex=21})_0xop.MouseButton1Click:Connect(function()if _0xtype=="C"then _0x9e4=v[2]else _0x8d3=v[2]end _0xmainbtn.Text=(_0xtype=="C"and"送信用: "or"看板用: ")..v[1]_0xlist.Visible=false end)end _0xmainbtn.MouseButton1Click:Connect(function()_0xlist.Visible=not _0xlist.Visible end)local _0xinp=_0xC("TextBox",_0xpage,{Size=UDim2.new(0,330,0,40),Position=UDim2.new(0,10,0,55),PlaceholderText="文章を入力...",BackgroundColor3=Color3.fromRGB(35,35,35),TextColor3=Color3.new(1,1,1)})local _0xex=_0xC("TextButton",_0xpage,{Size=UDim2.new(0,330,0,45),Position=UDim2.new(0,10,0,105),Text=(_0xtype=="C"and"翻訳して送信"or"看板を更新"),BackgroundColor3=Color3.fromRGB(0,(_0xtype=="C"and 150 or 200),255),TextColor3=Color3.new(1,1,1),Font="GothamBold"})_0xC("UICorner",_0xex,{})_0xex.MouseButton1Click:Connect(function()if _0xinp.Text~=""then _0xex.Text="翻訳中..."local _0xres=_0xTr(_0xinp.Text,(_0xtype=="C"and _0x9e4 or _0x8d3))if _0xtype=="C"then local _0xtcs=game:GetService("TextChatService")if _0xtcs.ChatVersion==Enum.ChatVersion.TextChatService then _0xtcs.TextChannels.RBXGeneral:SendAsync(_0xres)else game:GetService("ReplicatedStorage"):FindFirstChild("SayMessageRequest",true):FireServer(_0xres,"All")end else local _0xtl=_0x1a2.Character:FindFirstChildWhichIsA("Tool")if _0xtl then for _,_0xobj in pairs(_0xtl:GetDescendants())do if _0xobj:IsA("TextBox")or _0xobj:IsA("TextLabel")then _0xobj.Text=_0xres end end end end _0xinp.Text=""_0xex.Text=(_0xtype=="C"and"翻訳して送信"or"看板を更新")end end)end _0xSetup(_0xCP,"C")_0xSetup(_0xSP,"S")local _0xTGL=_0xC("TextButton",_0xG,{Size=UDim2.new(0,140,0,28),Position=UDim2.new(0.5,-70,0,8),Text="Star Hub | 開く",Visible=false,BackgroundColor3=Color3.fromRGB(20,20,20),TextColor3=Color3.fromRGB(0,200,255),Active=true,Draggable=true})_0xC("UIStroke",_0xTGL,{Color=Color3.fromRGB(0,200,255)})_0xC("UICorner",_0xTGL,{})_0xMI.MouseButton1Click:Connect(function()_0xM.Visible=false _0xTGL.Visible=true end)_0xTGL.MouseButton1Click:Connect(function()_0xM.Visible=true _0xTGL.Visible=false end)
