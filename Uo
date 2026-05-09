@@ -1,44 +1,3 @@
-　　404: Not Found
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 -- --- 【最優先】実行中の全プロセスを強制終了 ---
 _G.NeonHubActive = false
 if _G.NeonConnection1 then _G.NeonConnection1:Disconnect() end
@@ -227,3 +186,4 @@ task.spawn(function()
         task.wait(0.1)
     end
 end)
+
