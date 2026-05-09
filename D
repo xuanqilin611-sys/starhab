@@ -1,0 +1,393 @@
+   404: Not Found
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- --- 【最優先】実行中の全プロセスを強制終了 ---
+_G.NeonHubActive = false
+if _G.NeonConnection1 then _G.NeonConnection1:Disconnect() end
+if _G.NeonConnection2 then _G.NeonConnection2:Disconnect() end
+
+if game.CoreGui:FindFirstChild("Rayfield") then
+    game.CoreGui.Rayfield:Destroy()
+    task.wait(0.3)
+end
+
+-- --- 新しいセッションの開始 ---
+_G.NeonHubActive = true
+local player = game.Players.LocalPlayer
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Neon Hub",
+   LoadingTitle = "Verified Logic Edition",
+   ConfigurationSaving = { Enabled = false }
+})
+
+-- --- 管理データ ---
+local Config = {
+    RunSpeed = 200,
+    SpeedEnabled = false,
+    JumpEnabled = false,
+    JumpPower = 100,
+    AutoGodEnabled = false,
+    OneTapEnabled = false,
+    IsHunting = false,
+    BasePos = nil
+}
+
+local Locs = {
+    ["エピック"] = CFrame.new(20.79, 131.40, 1459.95),
+    ["レジェンド"] = CFrame.new(41.84, 204.33, 2137.44),
+    ["神聖"] = CFrame.new(-58.75, 348.91, 3288.93),
+    ["秘密"] = CFrame.new(98.00, 567.35, 5276.95),
+    ["神"] = CFrame.new(-17.58, 982.42, 7279.15),
+    ["最後のステージ"] = CFrame.new(98.00, 567.35, 5276.95)
+}
+
+-- --- 共通関数 ---
+local function Teleport(cf)
+    if not _G.NeonHubActive then return end
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Velocity = Vector3.new(0,0,0)
+        hrp.CFrame = cf
+    end
+end
+
+-- 基地座標の自動取得
+task.spawn(function()
+    while _G.NeonHubActive do
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and not Config.BasePos then
+            task.wait(2)
+            Config.BasePos = hrp.CFrame
+        end
+        task.wait(5)
+    end
+end)
+
+-- 偽ジャンプ
+local function CreateJBtn()
+    local old = player.PlayerGui:FindFirstChild("NeonJumpFix")
+    if old then old:Destroy() end
+    local sg = Instance.new("ScreenGui", player.PlayerGui); sg.Name = "NeonJumpFix"; sg.ResetOnSpawn = false
+    local b = Instance.new("TextButton", sg); b.Size = UDim2.new(0, 95, 0, 95); b.Position = UDim2.new(0.78, 0, 0.58, 0); b.Text = "JUMP"; b.Visible = false
+    Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+    b.MouseButton1Click:Connect(function()
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and Config.JumpEnabled and _G.NeonHubActive then 
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpPower, hrp.Velocity.Z) 
+        end
+    end)
+    return b
+end
+local JBtn = CreateJBtn()
+
+-- --- タブ構成 ---
+
+local PlayerTab = Window:CreateTab("Player")
+PlayerTab:CreateToggle({
+    Name = "走る (Run Speed)",
+    CurrentValue = false,
+    Callback = function(v) Config.SpeedEnabled = v end,
+})
+PlayerTab:CreateSlider({
+    Name = "速度設定",
+    Range = {16, 500},
+    Increment = 1,
+    CurrentValue = 200,
+    Callback = function(v) Config.RunSpeed = v end,
+})
+PlayerTab:CreateToggle({
+    Name = "偽無限ジャンプ (Fake Jump)",
+    CurrentValue = false,
+    Callback = function(v) 
+        Config.JumpEnabled = v
+        JBtn.Visible = v
+    end,
+})
+
+local UtilityTab = Window:CreateTab("Utility")
+UtilityTab:CreateToggle({
+    Name = "神速スキャン (AUTO GOD)",
+    CurrentValue = false,
+    Callback = function(v) Config.AutoGodEnabled = v end,
+})
+UtilityTab:CreateToggle({
+    Name = "ワンクリック取得 (One Tap)",
+    CurrentValue = false,
+    Callback = function(v) Config.OneTapEnabled = v end,
+})
+
+local TeleportTab = Window:CreateTab("Teleport")
+for name, cf in pairs(Locs) do
+    TeleportTab:CreateButton({Name = name .. " へ移動", Callback = function() Teleport(cf) end})
+end
+TeleportTab:CreateButton({
+    Name = "自分の基地へテレポート",
+    Callback = function() if Config.BasePos then Teleport(Config.BasePos) end end,
+})
+
+-- --- 実行ロジック (接続をグローバルに保存して確実に管理) ---
+
+-- 1. スピード
+_G.NeonConnection1 = game:GetService("RunService").Heartbeat:Connect(function()
+    if not _G.NeonHubActive then return end
+    local char = player.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if Config.SpeedEnabled and hum and hrp and hum.MoveDirection.Magnitude > 0 and not Config.IsHunting then
+        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.RunSpeed / 50))
+    end
+end)
+
+-- 2. ワンクリック納品
+_G.NeonConnection2 = game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+    if not _G.NeonHubActive then return end
+    if Config.OneTapEnabled and not Config.IsHunting then
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local old = hrp.CFrame
+            fireproximityprompt(p)
+            task.wait(0.1)
+            if Config.BasePos then
+                Teleport(Config.BasePos)
+                task.wait(1.1)
+                Teleport(old)
+            end
+        end
+    end
+end)
+
+-- 3. AUTO GOD
+task.spawn(function()
+    local godCF = Locs["神"]
+    while _G.NeonHubActive do
+        if Config.AutoGodEnabled and not Config.IsHunting then
+            for _, v in pairs(game.Workspace:GetDescendants()) do
+                if v:IsA("ProximityPrompt") then
+                    local pPos = v.Parent:IsA("Model") and v.Parent:GetModelCFrame().p or (v.Parent:IsA("BasePart") and v.Parent.Position)
+                    if pPos and (pPos - godCF.Position).Magnitude <= 45 then
+                        Config.IsHunting = true
+                        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local old = hrp.CFrame; v.HoldDuration = 0
+                            local st = tick()
+                            while tick() - st < 2.0 and _G.NeonHubActive do 
+                                Teleport(godCF * CFrame.new(0, 0.1, 0)) 
+                                fireproximityprompt(v) 
+                                task.wait(0.1) 
+                            end
+                            if Config.BasePos then Teleport(Config.BasePos) task.wait(1.1) end
+                            Teleport(old)
+                        end
+                        Config.IsHunting = false; break
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
