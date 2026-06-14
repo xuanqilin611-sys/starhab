@@ -1,30 +1,54 @@
--- --- 【1】旧プロセスの完全消去（二重起動防止） ---
-local CoreGui = game:GetService("CoreGui")
-if CoreGui:FindFirstChild("Rayfield") then
-    CoreGui.Rayfield:Destroy()
+-- --- 【最優先】古いセッションを完全に破壊 ---
+_G.NeonHubActive = false
+if _G.NeonConnection1 then _G.NeonConnection1:Disconnect() end
+if _G.NeonConnection2 then _G.NeonConnection2:Disconnect() end
+
+if game.CoreGui:FindFirstChild("Rayfield") then
+    game.CoreGui.Rayfield:Destroy()
 end
 
-_G.NeonHubActive = false
-if _G.NeonConn1 then _G.NeonConn1:Disconnect() end
-if _G.NeonConn2 then _G.NeonConn2:Disconnect() end
-task.wait(0.2)
+local oldJump = game.Players.LocalPlayer.PlayerGui:FindFirstChild("NeonJumpFix")
+if oldJump then oldJump:Destroy() end
 
--- --- 【2】初期設定と変数 ---
+task.wait(0.5)
+
+-- --- Rayfield読み込み ---
+local Rayfield
+pcall(function()
+    Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+if not Rayfield then
+    pcall(function()
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+    end)
+end
+if not Rayfield then return end
+
+-- --- 新しいセッションの開始 ---
 _G.NeonHubActive = true
-local CurrentSession = tick()
-_G.LastSession = CurrentSession
-
 local player = game.Players.LocalPlayer
-_G.SpeedEnabled = false
-_G.RunSpeed = 200
-_G.JumpEnabled = false
-_G.JumpPower = 100
-_G.AutoGodEnabled = false
-_G.OneTapEnabled = false
-_G.IsHunting = false
-_G.BasePos = nil
+local Players = game:GetService("Players")
+local workspace = game:GetService("Workspace")
 
--- 各エリアの正確な座標
+local Window = Rayfield:CreateWindow({
+    Name = "Neon Hub",
+    LoadingTitle = "Verified Logic Edition",
+    ConfigurationSaving = { Enabled = false }
+})
+
+-- --- 管理データ ---
+local Config = {
+    RunSpeed = 200,
+    SpeedEnabled = false,
+    JumpEnabled = false,
+    JumpPower = 100,
+    AutoGodEnabled = false,
+    OneTapEnabled = false,
+    RollbackEnabled = false,
+    IsHunting = false,
+    BasePos = nil
+}
+
 local Locs = {
     ["エピック"] = CFrame.new(20.79, 131.40, 1459.95),
     ["レジェンド"] = CFrame.new(41.84, 204.33, 2137.44),
@@ -34,167 +58,294 @@ local Locs = {
     ["最後のステージ"] = CFrame.new(98.00, 567.35, 5276.95)
 }
 
+-- --- 共通関数 ---
+local function Teleport(cf)
+    if not _G.NeonHubActive then return end
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        hrp.CFrame = cf
+    end
+end
+
 -- 基地座標の自動取得
 task.spawn(function()
     while _G.NeonHubActive do
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and not _G.BasePos then
+        if hrp and not Config.BasePos then
             task.wait(2)
-            _G.BasePos = hrp.CFrame
+            Config.BasePos = hrp.CFrame
         end
         task.wait(5)
     end
 end)
 
--- --- 【3】メニュー（GUI）の構築 ---
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-   Name = "Neon Hub",
-   LoadingTitle = "Fixed Version",
-   ConfigurationSaving = { Enabled = false }
-})
+-- --- 巻き戻しシステム ---
+local positionHistory = {}
+local maxHistoryFrames = 20
+local lastSafeCFrame = nil
+local isTeleporting = false
 
--- 【Player】タブ
-local PlayerTab = Window:CreateTab("Player")
-PlayerTab:CreateToggle({
-    Name = "走る (Run Speed)",
-    CurrentValue = false,
-    Callback = function(v) _G.SpeedEnabled = v end
-})
-PlayerTab:CreateSlider({
-    Name = "速度設定",
-    Range = {16, 500},
-    Increment = 1,
-    CurrentValue = 200,
-    Callback = function(v) _G.RunSpeed = v end
-})
+local function isStandingOnFloor(char, hrp)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {char}
+    raycastParams.IgnoreWater = true
+    local result = workspace:Raycast(hrp.Position, Vector3.new(0, -10, 0), raycastParams)
+    return result and result.Instance and result.Instance:IsA("BasePart")
+end
 
--- 偽ジャンプ
+task.spawn(function()
+    while _G.NeonHubActive do
+        if Config.RollbackEnabled then
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 and not isTeleporting then
+                local state = hum:GetState()
+                if (state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.RunningNoPhysics) and isStandingOnFloor(char, hrp) then
+                    table.insert(positionHistory, 1, hrp.CFrame)
+                    if #positionHistory > maxHistoryFrames then
+                        table.remove(positionHistory, #positionHistory)
+                    end
+                    lastSafeCFrame = positionHistory[#positionHistory]
+                end
+            end
+        end
+        task.wait(0.015)
+    end
+end)
+
+player.CharacterAdded:Connect(function(newCharacter)
+    if Config.RollbackEnabled and lastSafeCFrame then
+        isTeleporting = true
+        local hrp = newCharacter:WaitForChild("HumanoidRootPart", 5)
+        local hum = newCharacter:WaitForChild("Humanoid", 5)
+        if hrp and hum then
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.CFrame = lastSafeCFrame
+            task.wait(0.05)
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+        end
+        table.clear(positionHistory)
+        isTeleporting = false
+    end
+end)
+
+-- 偽ジャンプボタン
 local function CreateJBtn()
-    local old = player.PlayerGui:FindFirstChild("NeonJ")
-    if old then old:Destroy() end
-    local sg = Instance.new("ScreenGui", player.PlayerGui); sg.Name = "NeonJ"; sg.ResetOnSpawn = false
-    local b = Instance.new("TextButton", sg); b.Size = UDim2.new(0, 95, 0, 95); b.Position = UDim2.new(0.78, 0, 0.58, 0); b.Text = "JUMP"; b.Visible = false
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "NeonJumpFix"
+    sg.ResetOnSpawn = false
+    sg.DisplayOrder = 999
+    sg.IgnoreGuiInset = true
+    sg.Parent = player.PlayerGui
+
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 95, 0, 95)
+    b.Position = UDim2.new(0.78, 0, 0.58, 0)
+    b.Text = "JUMP"
+    b.TextScaled = true
+    b.Font = Enum.Font.GothamBold
+    b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.BackgroundTransparency = 0.2
+    b.Visible = false
+    b.ZIndex = 999
+    b.Parent = sg
     Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+
     b.MouseButton1Click:Connect(function()
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and _G.JumpEnabled and _G.NeonHubActive then 
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.JumpPower, hrp.Velocity.Z) 
+        if hrp and Config.JumpEnabled and _G.NeonHubActive then
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, Config.JumpPower, hrp.Velocity.Z)
         end
     end)
     return b
 end
 local JBtn = CreateJBtn()
 
+-- --- タブ構成 ---
+
+local PlayerTab = Window:CreateTab("Player")
+PlayerTab:CreateToggle({
+    Name = "走る (Run Speed)",
+    CurrentValue = false,
+    Callback = function(v) Config.SpeedEnabled = v end,
+})
+PlayerTab:CreateSlider({
+    Name = "速度設定",
+    Range = {16, 500},
+    Increment = 1,
+    CurrentValue = 200,
+    Callback = function(v) Config.RunSpeed = v end,
+})
 PlayerTab:CreateToggle({
     Name = "偽無限ジャンプ (Fake Jump)",
     CurrentValue = false,
-    Callback = function(v) 
-        _G.JumpEnabled = v
+    Callback = function(v)
+        Config.JumpEnabled = v
         JBtn.Visible = v
-    end
+    end,
 })
 
--- 【Utility】タブ
 local UtilityTab = Window:CreateTab("Utility")
 UtilityTab:CreateToggle({
     Name = "神速スキャン (AUTO GOD)",
     CurrentValue = false,
-    Callback = function(v) _G.AutoGodEnabled = v end
+    Callback = function(v) Config.AutoGodEnabled = v end,
 })
 UtilityTab:CreateToggle({
     Name = "ワンクリック取得 (One Tap)",
     CurrentValue = false,
-    Callback = function(v) _G.OneTapEnabled = v end
+    Callback = function(v) Config.OneTapEnabled = v end,
+})
+UtilityTab:CreateToggle({
+    Name = "巻き戻しリスポーン (Rollback)",
+    CurrentValue = false,
+    Callback = function(v)
+        Config.RollbackEnabled = v
+        if not v then
+            table.clear(positionHistory)
+            lastSafeCFrame = nil
+        end
+    end,
 })
 
--- 【Teleport】タブ
 local TeleportTab = Window:CreateTab("Teleport")
 for name, cf in pairs(Locs) do
     TeleportTab:CreateButton({
         Name = name .. " へ移動",
-        Callback = function() 
-            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = cf end
-        end
+        Callback = function() Teleport(cf) end
     })
 end
 TeleportTab:CreateButton({
     Name = "自分の基地へテレポート",
-    Callback = function() 
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and _G.BasePos then hrp.CFrame = _G.BasePos end 
-    end
+    Callback = function()
+        if Config.BasePos then Teleport(Config.BasePos) end
+    end,
 })
 
--- --- 【4】修正済みコアロジック ---
-
--- A. スピード調整 (Heartbeatで確実に動作)
-_G.NeonConn1 = game:GetService("RunService").Heartbeat:Connect(function()
-    if not _G.NeonHubActive or _G.LastSession ~= CurrentSession then 
-        if _G.NeonConn1 then _G.NeonConn1:Disconnect() end
-        return 
+local function GetPlayerNames()
+    local names = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then table.insert(names, p.Name) end
     end
+    if #names == 0 then table.insert(names, "(プレイヤーなし)") end
+    return names
+end
+
+local SelectedPlayerName = nil
+
+TeleportTab:CreateDropdown({
+    Name = "プレイヤーを選択",
+    Options = GetPlayerNames(),
+    CurrentOption = {},
+    MultipleOptions = false,
+    Callback = function(v)
+        local name = v
+        if type(v) == "table" then name = v[1] end
+        if name and name ~= "" and name ~= "(プレイヤーなし)" then
+            SelectedPlayerName = name
+        else
+            SelectedPlayerName = nil
+        end
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "選択プレイヤーにTP",
+    Callback = function()
+        local target = SelectedPlayerName and Players:FindFirstChild(SelectedPlayerName)
+        if target and target.Character then
+            local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                Teleport(targetHRP.CFrame * CFrame.new(2, 0, 2))
+            else
+                Rayfield:Notify({Title = "エラー", Content = "対象のキャラクターが見つかりません", Duration = 3})
+            end
+        else
+            Rayfield:Notify({Title = "エラー", Content = "プレイヤーを選択してください", Duration = 3})
+        end
+    end,
+})
+
+-- --- 実行ロジック ---
+
+_G.NeonConnection1 = game:GetService("RunService").Heartbeat:Connect(function()
+    if not _G.NeonHubActive then return end
     local char = player.Character
     local hum = char and char:FindFirstChild("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if _G.SpeedEnabled and hum and hrp and hum.MoveDirection.Magnitude > 0 and not _G.IsHunting then
-        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.RunSpeed / 50))
+    if Config.SpeedEnabled and hum and hrp and hum.MoveDirection.Magnitude > 0 and not Config.IsHunting then
+        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (Config.RunSpeed / 50))
     end
 end)
 
--- B. ワンクリック納品 (オンの時だけ作動)
-_G.NeonConn2 = game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
-    if not _G.NeonHubActive or _G.LastSession ~= CurrentSession then return end
-    if _G.OneTapEnabled and not _G.IsHunting then
+-- ワンクリック納品（元の場所に確実に戻る）
+_G.NeonConnection2 = game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+    if not _G.NeonHubActive then return end
+    if Config.OneTapEnabled and not Config.IsHunting then
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
-            local old = hrp.CFrame
+            local old = hrp.CFrame  -- 元の場所を記録
             fireproximityprompt(p)
             task.wait(0.1)
-            if _G.BasePos then
-                hrp.CFrame = _G.BasePos
-                task.wait(1.1)
-                hrp.CFrame = old
+            if Config.BasePos then
+                Teleport(Config.BasePos)
+                task.wait(1.5)      -- 基地で少し待つ
+                Teleport(old)       -- 元の場所に戻る
             end
         end
     end
 end)
 
--- C. 神速スキャン（プレイヤー誤爆防止・修正版）
+-- AUTO GOD（プレイヤー反応を完全除去）
+local GodCooldown = {}
+
 task.spawn(function()
     local godCF = Locs["神"]
-    while _G.NeonHubActive and _G.LastSession == CurrentSession do
-        if _G.AutoGodEnabled and not _G.IsHunting then
+    while _G.NeonHubActive do
+        if Config.AutoGodEnabled and not Config.IsHunting then
             for _, v in pairs(game.Workspace:GetDescendants()) do
                 if v:IsA("ProximityPrompt") then
-                    -- プレイヤー内のプロンプトを完全に除外
-                    local isPlayer = false
-                    for _, p in pairs(game.Players:GetPlayers()) do
+
+                    -- プレイヤーのキャラクター配下は完全スキップ
+                    local isPlayerPrompt = false
+                    for _, p in pairs(Players:GetPlayers()) do
                         if p.Character and v:IsDescendantOf(p.Character) then
-                            isPlayer = true
+                            isPlayerPrompt = true
                             break
                         end
                     end
+                    if isPlayerPrompt then continue end
 
-                    if not isPlayer then
-                        local pPos = v.Parent:IsA("Model") and v.Parent:GetModelCFrame().p or (v.Parent:IsA("BasePart") and v.Parent.Position)
-                        if pPos and (pPos - godCF.Position).Magnitude <= 45 then
-                            _G.IsHunting = true
-                            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    -- 自分のキャラクター配下もスキップ
+                    if player.Character and v:IsDescendantOf(player.Character) then continue end
+
+                    local pPos = v.Parent:IsA("Model") and v.Parent:GetModelCFrame().p
+                        or (v.Parent:IsA("BasePart") and v.Parent.Position)
+                    if pPos and (pPos - godCF.Position).Magnitude <= 45 then
+                        local lastHit = GodCooldown[v]
+                        if not lastHit or (tick() - lastHit) > 5 then
+                            Config.IsHunting = true
+                            GodCooldown[v] = tick()
+
+                            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                             if hrp then
-                                local old = hrp.CFrame
                                 v.HoldDuration = 0
-                                local st = tick()
-                                while tick() - st < 2.0 and _G.NeonHubActive do
-                                    hrp.CFrame = godCF * CFrame.new(0, 0.1, 0)
-                                    fireproximityprompt(v)
-                                    task.wait(0.1)
+                                Teleport(godCF * CFrame.new(0, 0.1, 0))
+                                task.wait(0.2)
+                                fireproximityprompt(v)
+                                task.wait(0.2)
+                                fireproximityprompt(v)
+                                task.wait(1.0)
+                                if Config.BasePos then
+                                    Teleport(Config.BasePos)
                                 end
-                                if _G.BasePos then hrp.CFrame = _G.BasePos task.wait(1.1) end
-                                hrp.CFrame = old
                             end
-                            _G.IsHunting = false
+
+                            Config.IsHunting = false
                             break
                         end
                     end
