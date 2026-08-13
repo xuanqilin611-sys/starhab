@@ -1,0 +1,164 @@
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- 既存GUI削除
+if CoreGui:FindFirstChild("SamiControlPanel") then
+    CoreGui.SamiControlPanel:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SamiControlPanel"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- メインパネル
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 160, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -80, 0.5, -110)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Active = true
+MainFrame.Draggable = true 
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame)
+
+local function createBtn(text, pos, color)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 140, 0, 30)
+    b.Position = pos
+    b.Text = text
+    b.BackgroundColor3 = color
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.ZIndex = 5
+    b.Parent = MainFrame
+    Instance.new("UICorner", b)
+    return b
+end
+
+-- UI要素
+local ESPButton = createBtn("ESP: OFF", UDim2.new(0, 10, 0, 15), Color3.fromRGB(180, 40, 40))
+local CamButton = createBtn("CAMERA: OFF", UDim2.new(0, 10, 0, 50), Color3.fromRGB(40, 40, 180))
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Size = UDim2.new(0, 140, 0, 30); SpeedInput.Position = UDim2.new(0, 10, 0, 105)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40); SpeedInput.TextColor3 = Color3.new(1, 1, 1)
+SpeedInput.Text = "16"; SpeedInput.Font = Enum.Font.GothamBold; SpeedInput.Parent = MainFrame
+Instance.new("UICorner", SpeedInput)
+local InfJumpBtn = createBtn("INF JUMP: OFF", UDim2.new(0, 10, 0, 145), Color3.fromRGB(150, 100, 0))
+
+local ShrinkBtn = Instance.new("TextButton")
+ShrinkBtn.Size = UDim2.new(0, 30, 0, 30); ShrinkBtn.Position = UDim2.new(1, -35, 0, 2)
+ShrinkBtn.Text = "−"; ShrinkBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ShrinkBtn.TextColor3 = Color3.new(1, 1, 1); ShrinkBtn.ZIndex = 10; ShrinkBtn.Parent = MainFrame
+Instance.new("UICorner", ShrinkBtn)
+
+-- 最小化
+local isMin = false
+ShrinkBtn.MouseButton1Click:Connect(function()
+    isMin = not isMin
+    MainFrame:TweenSize(isMin and UDim2.new(0, 160, 0, 35) or UDim2.new(0, 160, 0, 220), "Out", "Quad", 0.2, true)
+    ShrinkBtn.Text = isMin and "+" or "−"
+    for _, v in pairs(MainFrame:GetChildren()) do if v ~= ShrinkBtn and not v:IsA("UICorner") then v.Visible = not isMin end end
+end)
+
+--- 無限ジャンプ & スピードハック ---
+local infJumpOn, currentSpeed = false, 16
+UserInputService.JumpRequest:Connect(function()
+    if infJumpOn then
+        local h = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+InfJumpBtn.MouseButton1Click:Connect(function()
+    infJumpOn = not infJumpOn
+    InfJumpBtn.Text = "INF JUMP: "..(infJumpOn and "ON" or "OFF")
+    InfJumpBtn.BackgroundColor3 = infJumpOn and Color3.fromRGB(200, 150, 0) or Color3.fromRGB(150, 100, 0)
+end)
+SpeedInput.FocusLost:Connect(function()
+    local val = tonumber(SpeedInput.Text)
+    if val then currentSpeed = val; local h = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid"); if h then h.WalkSpeed = val end
+    else SpeedInput.Text = tostring(currentSpeed) end
+end)
+
+--- ESP ---
+local espOn, highlights = false, {}
+local function addESP(p)
+    if p == Players.LocalPlayer then return end
+    p.CharacterAdded:Connect(function(c) if espOn then local h = Instance.new("Highlight", CoreGui); h.Adornee = c; highlights[p] = h end end)
+    if p.Character and espOn then local h = Instance.new("Highlight", CoreGui); h.Adornee = p.Character; highlights[p] = h end
+end
+ESPButton.MouseButton1Click:Connect(function()
+    espOn = not espOn
+    ESPButton.Text = "ESP: "..(espOn and "ON" or "OFF"); ESPButton.BackgroundColor3 = espOn and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(180, 40, 40)
+    for _, h in pairs(highlights) do h:Destroy() end highlights = {}
+    if espOn then for _, p in pairs(Players:GetPlayers()) do addESP(p) end end
+end)
+Players.PlayerAdded:Connect(addESP)
+
+--- カメラ & 中心ズレ完全防止ロジック ---
+local camOn = false
+local camera = workspace.CurrentCamera
+local yaw, pitch = 0, 0
+local moveVector = Vector3.new(0,0,0)
+local moveTouch = nil
+local centerPos = nil -- 移動パッドの「中心」を固定
+
+UserInputService.InputBegan:Connect(function(input)
+    if not camOn then return end
+    if input.UserInputType == Enum.UserInputType.Touch and input.Position.X < (camera.ViewportSize.X / 2) then
+        moveTouch = input
+        centerPos = input.Position -- 触れた瞬間を「動かない中心」としてロック
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not camOn then return end
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 右側：視点回転
+        if input.Position.X > (camera.ViewportSize.X / 2) then
+            yaw = yaw - (input.Delta.X * 0.4)
+            pitch = math.clamp(pitch - (input.Delta.Y * 0.4), -85, 85)
+        -- 左側：固定された中心点からの「ズレ」だけで移動方向を決める
+        elseif input == moveTouch and centerPos then
+            local diff = (input.Position - centerPos)
+            if diff.Magnitude > 10 then -- 遊びを作る
+                local rot = CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
+                local dir = diff.Unit
+                -- 【ここがキモ】カメラの正面(Look)と右(Right)を、指の倒し方にそのまま合成
+                moveVector = (rot.LookVector * -dir.Y) + (rot.RightVector * dir.X)
+            else
+                moveVector = Vector3.new(0,0,0)
+            end
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input == moveTouch then moveTouch = nil; centerPos = nil; moveVector = Vector3.new(0,0,0) end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not camOn then return end
+    local rot = CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
+    -- currentSpeedに連動してカメラ移動
+    camera.CFrame = CFrame.new(camera.CFrame.Position + (moveVector * (currentSpeed / 10))) * rot
+end)
+
+CamButton.MouseButton1Click:Connect(function()
+    camOn = not camOn
+    CamButton.Text = "CAMERA: "..(camOn and "ON" or "OFF"); CamButton.BackgroundColor3 = camOn and Color3.fromRGB(40, 180, 40) or Color3.fromRGB(40, 40, 180)
+    local char = Players.LocalPlayer.Character
+    if camOn then
+        if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = true end
+        camera.CameraType = Enum.CameraType.Scriptable
+        pcall(function() Players.LocalPlayer.PlayerGui.TouchGui.Enabled = false end)
+        local l = camera.CFrame.LookVector
+        yaw, pitch = math.deg(math.atan2(-l.X, -l.Z)), math.deg(math.asin(math.clamp(l.Y, -0.99, 0.99)))
+    else
+        if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+        camera.CameraType = Enum.CameraType.Custom
+        pcall(function() Players.LocalPlayer.PlayerGui.TouchGui.Enabled = true end)
+        camera.CameraSubject = char:FindFirstChild("Humanoid")
+    end
+end)
